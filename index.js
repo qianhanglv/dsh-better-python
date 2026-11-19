@@ -116,6 +116,9 @@ function flagName(token) {
   return index === -1 ? token : token.slice(0, index)
 }
 
+/** Display title used in guidance text; keep in sync with `meta.title` in locale/zh.json. */
+const DISPLAY_TITLE = '更省心的 Python 安装'
+
 /** Files that mark a directory as an installable Python project. */
 const PROJECT_MARKERS = ['pyproject.toml', 'setup.py', 'setup.cfg']
 
@@ -1139,7 +1142,7 @@ function validateExtraArgs(value, config = liveConfig) {
       throw new Error(`extraArgs refuses ${name}: it changes the install source or target, which the confirmation dialog fixes. It is refused for every caller and cannot be allowlisted. Tell the user why it is needed instead of reaching for another command.`)
     }
     if (!allowed.has(name)) {
-      throw new Error(`extraArgs refuses ${name}: it is not allowlisted. Tell the user it is needed and let them add it under Plugins → Python 依赖优先 → 额外的 pip 参数; do not work around this with another command. Built-in flags: ${BUILTIN_EXTRA_FLAGS.join(', ')}`)
+      throw new Error(`extraArgs refuses ${name}: it is not allowlisted. Tell the user it is needed and let them add it under Plugins → ${DISPLAY_TITLE} → 额外的 pip 参数; do not work around this with another command. Built-in flags: ${BUILTIN_EXTRA_FLAGS.join(', ')}`)
     }
     if (!flags.includes(token)) flags.push(token)
   }
