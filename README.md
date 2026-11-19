@@ -82,6 +82,20 @@ git+https://github.com/qianhanglv/dsh-better-python.git#<完整 40 位 commit>
 
 Add plugin 里填这个包的绝对路径即可（开发时最方便，改代码即时生效）。
 
+## 通过插件广场（索引）发现
+
+本项目自带一份插件市场索引，托管在 GitHub Pages：
+
+```
+https://qianhanglv.github.io/dsh-better-python/market/index.json
+```
+
+在 DSH 的 **Plugins → Discover → 索引源** 里添加这个 URL，就能搜到本插件并一键安装。
+
+> **Discover 是实验性功能**，由 `@deepseek-ai/dsh-experimental-plugin-market-bundle` 提供，默认安装里没有。需要先在 **Add plugin** 里安装它，才能看到 Discover 标签页。
+
+索引内容维护在 [`market/index.json`](market/index.json)：新增版本时同步追加一条 `versions[]`（精确 SemVer、Unix 秒的 `publishTimestamp`、指向该版本的 `source`）。当前条目使用 Git 源并钉在具体 commit 上；发布到 npm 后可改成 `{"type": "npm"}`。
+
 ## 在插件管理页里配置
 
 打开 **Plugins → Better Python for DSH**，页面中间会出现设置区：
