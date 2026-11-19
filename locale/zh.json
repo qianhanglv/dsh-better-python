@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "更省心的 Python 安装",
+    "description": "动 Python 之前先探测本机的解释器和已有依赖库，优先用已经装好的库；缺包时用一个确认框让你选择镜像后再安装。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

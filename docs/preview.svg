@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300" role="img" aria-label="Probe the interpreters, confirm one install with a chosen mirror, then install">
+  <rect width="640" height="300" rx="20" fill="#f3f5f9"/>
+
+  <!-- stage 1: probing what already exists -->
+  <g stroke="#3F7D8C" stroke-width="3" fill="none" stroke-linecap="round">
+    <circle cx="108" cy="116" r="34"/>
+    <path d="M132 140 L156 164"/>
+    <path d="M94 118 L104 128 L123 102"/>
+  </g>
+  <g fill="#8FB3C4">
+    <rect x="70" y="196" width="76" height="14" rx="4"/>
+    <rect x="70" y="216" width="76" height="14" rx="4" opacity="0.75"/>
+    <rect x="70" y="236" width="76" height="14" rx="4" opacity="0.5"/>
+  </g>
+
+  <path d="M196 150 L230 150" stroke="#7b8b9f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M222 142 L232 150 L222 158" stroke="#7b8b9f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- stage 2: one confirmation with a source list -->
+  <rect x="248" y="62" width="176" height="184" rx="14" fill="#ffffff" stroke="#b7c3d2" stroke-width="2"/>
+  <rect x="268" y="84" width="92" height="10" rx="5" fill="#8FB3C4"/>
+  <rect x="268" y="110" width="136" height="22" rx="7" fill="#e3e9f0"/>
+  <rect x="268" y="140" width="136" height="22" rx="7" fill="#e3e9f0"/>
+  <rect x="268" y="170" width="136" height="22" rx="7" fill="#e0f0ea" stroke="#3F7D8C" stroke-width="2"/>
+  <path d="M278 181 L284 187 L294 175" stroke="#2F7D63" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="268" y="200" width="136" height="22" rx="7" fill="#e3e9f0"/>
+
+  <path d="M440 150 L474 150" stroke="#7b8b9f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M466 142 L476 150 L466 158" stroke="#7b8b9f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- stage 3: installed into the chosen interpreter -->
+  <path d="M508 96 L566 96 L566 134 L508 134 Z" fill="#5B8FA8"/>
+  <path d="M508 96 L537 96 L537 134 L508 134 Z" fill="#8FB3C4"/>
+  <path d="M537 96 L537 108 M508 108 L566 108" stroke="#f3f5f9" stroke-width="2"/>
+  <path d="M537 162 L537 196" stroke="#7b8b9f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M527 186 L537 198 L547 186" stroke="#7b8b9f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="498" y="206" width="78" height="40" rx="9" fill="#ffffff" stroke="#b7c3d2" stroke-width="2"/>
+  <circle cx="537" cy="226" r="9" fill="none" stroke="#3F7D8C" stroke-width="3"/>
+</svg>

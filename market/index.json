@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "title": {
+    "en": "qian's DSH plugins",
+    "zh": "qian 的 DSH 插件"
+  },
+  "description": {
+    "en": "Bundles published by qian.",
+    "zh": "qian 发布的 DSH bundle。"
+  },
+  "metadata": {
+    "categories": {
+      "environment": {
+        "title": {
+          "en": "Environments",
+          "zh": "环境管理"
+        }
+      }
+    },
+    "labels": {},
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "dsh-better-python",
+      "title": {
+        "en": "Python environment guard",
+        "zh": "Python 依赖优先"
+      },
+      "description": {
+        "en": "Probes the Python interpreters on this machine before any Python work, prefers the libraries you already have, and asks you to confirm one install with the mirror you choose.",
+        "zh": "动 Python 之前先探测本机的解释器和已有依赖库，优先用已经装好的库；缺包时用一个确认框让你选择镜像后再安装。"
+      },
+      "icon": "../icon.svg",
+      "author": "qian",
+      "repository": {
+        "url": "https://github.com/REPLACE-ME/python-env-guard"
+      },
+      "metadata": {
+        "category": "environment",
+        "keywords": [
+          "python",
+          "pip",
+          "mirror",
+          "virtualenv"
+        ],
+        "labels": [],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1795075200,
+          "source": {
+            "type": "npm"
+          },
+          "engines": {}
+        }
+      ]
+    }
+  ]
+}

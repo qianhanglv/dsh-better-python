@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Better Python for DSH",
+    "description": "Probes the Python interpreters on this machine before any Python work, prefers the libraries you already have, and asks you to confirm one install with the mirror you choose.",
+    "detail": "docs/DETAIL.md"
+  }
+}

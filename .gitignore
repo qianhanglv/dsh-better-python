@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# dependencies (installed by the consumer)
+node_modules/
+
+# logs and local artifacts
+*.log
+npm-debug.log*

@@ -1,0 +1,6 @@
+# Inserts the Python environment guard into the composed profile: the probe
+# tool, the preference-order prompt section, and the install gate.
+- insert:
+    - id: python-env-guard
+      name: 'dsh-better-python'
+      config: {}
