@@ -1,6 +1,6 @@
 {
   "name": "dsh-better-python",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Probe Python interpreters before installing anything, and prefer the libraries that already exist.",
   "exports": {

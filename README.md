@@ -93,7 +93,7 @@ AI 编码代理在处理 Python 任务时，存在两类很难自知的系统性
 在 DSH 的 **Plugins → Add plugin** 中输入：
 
 ```
-git+https://github.com/qianhanglv/dsh-better-python.git#6ea76871c2f04b8b28df7a1b375d1a8b97c1b91c
+git+https://github.com/qianhanglv/dsh-better-python.git#2f012ddd8ad130ae08755e0cdfdf1c488e3794c1
 ```
 
 该 commit 即当前发布版本（`v1.0.0`，也是插件索引中指向的同一个）。Git 安装要求本机具备 `git`。
