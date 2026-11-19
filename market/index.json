@@ -24,8 +24,8 @@
     {
       "name": "dsh-better-python",
       "title": {
-        "en": "Python environment guard",
-        "zh": "Python 依赖优先"
+        "en": "Better Python for DSH",
+        "zh": "更省心的 Python 安装"
       },
       "description": {
         "en": "Probes the Python interpreters on this machine before any Python work, prefers the libraries you already have, and asks you to confirm one install with the mirror you choose.",
@@ -34,7 +34,7 @@
       "icon": "../icon.svg",
       "author": "qian",
       "repository": {
-        "url": "https://github.com/REPLACE-ME/python-env-guard"
+        "url": "https://github.com/qianhanglv/dsh-better-python"
       },
       "metadata": {
         "category": "environment",
@@ -52,7 +52,9 @@
           "version": "1.0.0",
           "publishTimestamp": 1795075200,
           "source": {
-            "type": "npm"
+            "type": "git",
+            "url": "https://github.com/qianhanglv/dsh-better-python",
+            "commit": "6ea76871c2f04b8b28df7a1b375d1a8b97c1b91c"
           },
           "engines": {}
         }
