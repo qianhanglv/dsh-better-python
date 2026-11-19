@@ -62,25 +62,25 @@ AI 写代码时有两个很难自知的坏习惯：
 
 ## 安装
 
-### 从 npm（推荐）
+### 从 Git（当前唯一可用的远程方式）
 
 在 DSH 的 **Plugins → Add plugin** 里输入：
 
 ```
-dsh-better-python
+git+https://github.com/qianhanglv/dsh-better-python.git#6ea76871c2f04b8b28df7a1b375d1a8b97c1b91c
 ```
 
-### 从 Git
+这个 commit 就是当前的发布版本（`v1.0.0`，也是插件索引里指向的同一个）。Git 安装需要本机有 `git`。
 
-```
-git+https://github.com/qianhanglv/dsh-better-python.git#<完整 40 位 commit>
-```
+想跟随最新代码，可以把 `#<commit>` 换成 `#main`；但钉死 commit 更稳定——分支会漂移。
 
-用完整 commit 比分支名稳定。Git 安装需要本机有 `git`。
+### 从本地目录（开发时）
 
-### 从本地目录
+Add plugin 里填这个包的绝对路径即可，改代码即时生效，不用重新发布。
 
-Add plugin 里填这个包的绝对路径即可（开发时最方便，改代码即时生效）。
+### 从 npm（尚未发布）
+
+计划发布为 `dsh-better-python`。发布后可以直接在 Add plugin 里输入包名，比 Git 方式快；**在此之前请用上面两种方式**。
 
 ## 通过插件广场（索引）发现
 
