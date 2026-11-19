@@ -49,12 +49,22 @@
       },
       "versions": [
         {
-          "version": "1.0.0",
-          "publishTimestamp": 1795075200,
+          "version": "1.0.1",
+          "publishTimestamp": 1795078305,
           "source": {
             "type": "git",
             "url": "https://github.com/qianhanglv/dsh-better-python",
-            "commit": "2f012ddd8ad130ae08755e0cdfdf1c488e3794c1"
+            "commit": "02843e9937cfcd4ed44691d40676ff559a6d6758"
+          },
+          "engines": {}
+        },
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1795074705,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/qianhanglv/dsh-better-python",
+            "commit": "febf7567644c6a03f8475a8fa5222045cae71d9f"
           },
           "engines": {}
         }
