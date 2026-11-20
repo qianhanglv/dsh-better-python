@@ -43,15 +43,22 @@ const PROBE_TTL_MS = 30_000
 /** Workspace virtual environment created on request. */
 const DEFAULT_VENV_DIR = '.dsh-venv'
 
-/** Install sources offered in the confirmation dialog and in the plugin settings. */
-const SOURCES = [
-  { id: 'default', label: '默认源（不指定）', url: null, description: 'PyPI 官方渠道：不加 -i 参数' },
-  { id: 'tuna', label: '清华 TUNA', url: 'https://pypi.tuna.tsinghua.edu.cn/simple', description: 'https://pypi.tuna.tsinghua.edu.cn/simple' },
-  { id: 'aliyun', label: '阿里云', url: 'https://mirrors.aliyun.com/pypi/simple/', description: 'https://mirrors.aliyun.com/pypi/simple/' },
-  { id: 'ustc', label: '中科大 USTC', url: 'https://pypi.mirrors.ustc.edu.cn/simple/', description: 'https://pypi.mirrors.ustc.edu.cn/simple/' },
-  { id: 'tencent', label: '腾讯云', url: 'https://mirrors.cloud.tencent.com/pypi/simple', description: 'https://mirrors.cloud.tencent.com/pypi/simple' },
-  { id: 'douban', label: '豆瓣', url: 'https://pypi.douban.com/simple/', description: 'https://pypi.douban.com/simple/' },
+/**
+ * The sources every profile starts with. Users may add, edit, and delete any of
+ * them in the plugin settings; the settings page owns the list, and the
+ * confirmation dialog is where one is actually chosen.
+ */
+const BUILTIN_SOURCES = [
+  { label: '默认源（不指定）', url: null },
+  { label: '清华 TUNA', url: 'https://pypi.tuna.tsinghua.edu.cn/simple' },
+  { label: '阿里云', url: 'https://mirrors.aliyun.com/pypi/simple/' },
+  { label: '中科大 USTC', url: 'https://pypi.mirrors.ustc.edu.cn/simple/' },
+  { label: '腾讯云', url: 'https://mirrors.cloud.tencent.com/pypi/simple' },
+  { label: '豆瓣', url: 'https://pypi.douban.com/simple/' },
 ]
+
+/** No answer within this window applies the configured default action. */
+const AUTO_TIMEOUT_MS = 30_000
 
 /** Answer label that aborts an install. */
 const CANCEL_LABEL = '取消安装'
@@ -137,9 +144,22 @@ const INSTALL_TIMEOUT_MS = 900_000
  * the live value on every use.
  */
 export const Config = z.object({
+  /** JSON array of `{ label, url }`; empty means the built-in list. */
+  sources: z.string().default('').volatile(),
+  extraFlags: z.string().default('').volatile(),
+  /** Apply a preset choice when the confirmation dialog is not answered in time. */
+  autoAnswer: z.boolean().default(false).volatile(),
+  /** `install` or `cancel`, used only while `autoAnswer` is on. */
+  autoAction: z.string().default('cancel').volatile(),
+  /** Label of the source to install from when the dialog times out. */
+  autoSourceLabel: z.string().default('').volatile(),
+  /** `remove` or `keep`, used only while `autoAnswer` is on and the dialog is an uninstall. */
+  autoUninstallAction: z.string().default('keep').volatile(),
+  /** JSON array of automatic-decision notices, newest first; cleared by the client. */
+  notices: z.string().default('').volatile(),
+  /** Deprecated: kept so already-saved profiles still validate. */
   sourceId: z.string().default('default').volatile(),
   customUrl: z.string().default('').volatile(),
-  extraFlags: z.string().default('').volatile(),
 })
 
 /**
@@ -161,17 +181,137 @@ function settingValue(config, key, fallback) {
 }
 
 /**
- * Resolve the configured default source.
- * @param config - the row's resolved config; omitted reads the last applied one.
- * @returns The source row, falling back to the unconfigured default.
+ * Read a boolean setting whether the loader handed us a live reference or a
+ * plain value.
+ * @param config - the row's resolved config.
+ * @param key - field name.
+ * @param fallback - value used when the field is absent.
+ * @returns The current boolean.
  */
-function defaultSource(config = liveConfig) {
-  const sourceId = settingValue(config, 'sourceId', 'default')
-  if (sourceId === 'custom') {
-    const url = validSourceUrl(settingValue(config, 'customUrl', ''))
-    if (url !== null) return { id: 'custom', label: '自定义镜像', url, description: url }
+function settingBoolean(config, key, fallback) {
+  const field = config?.[key]
+  if (typeof field === 'boolean') return field
+  if (field !== null && typeof field === 'object' && typeof field.get === 'function') {
+    const current = field.get()
+    if (typeof current === 'boolean') return current
   }
-  return SOURCES.find(source => source.id === sourceId) ?? SOURCES[0]
+  return fallback
+}
+
+/**
+ * The source list the confirmation dialog offers: the user's saved list, or the
+ * built-ins while nothing has been saved yet.
+ * @param config - the row's resolved config; omitted reads the last applied one.
+ * @returns Valid sources in display order.
+ */
+function resolveSources(config = liveConfig) {
+  const raw = settingValue(config, 'sources', '')
+  if (raw.trim().length === 0) return BUILTIN_SOURCES
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return BUILTIN_SOURCES
+  }
+  if (!Array.isArray(parsed)) return BUILTIN_SOURCES
+  const out = []
+  for (const item of parsed) {
+    if (item === null || typeof item !== 'object') continue
+    const label = typeof item.label === 'string' ? item.label.trim() : ''
+    if (label.length === 0) continue
+    const rawUrl = item.url
+    const url = rawUrl === null || rawUrl === undefined || rawUrl === '' ? null : validSourceUrl(rawUrl)
+    if (url === null && rawUrl !== null && rawUrl !== undefined && rawUrl !== '') continue
+    if (out.some(source => source.label === label)) continue
+    out.push({ label, url })
+  }
+  return out.length > 0 ? out : BUILTIN_SOURCES
+}
+
+/**
+ * Shorten a long path to its last segments for the dialog's single line.
+ * @param path - absolute path.
+ * @param keep - trailing segments to keep.
+ * @returns The shortened path.
+ */
+function shortPath(path, keep = 3) {
+  if (typeof path !== 'string' || path.length === 0) return String(path)
+  const parts = path.split('/').filter(Boolean)
+  return parts.length <= keep ? path : `…/${parts.slice(-keep).join('/')}`
+}
+
+/**
+ * Close a timed-out question by answering it on the user's behalf.
+ *
+ * The question service only accepts an answer once the call has returned and
+ * the question is `continued`, so this runs shortly after the tool result. It
+ * retries a few times because that state transition is not instantaneous.
+ * @param ctx - plugin context carrying the question service.
+ * @param agent - live calling agent.
+ * @param callId - the tool call that owns the question.
+ * @param questionId - the question's id.
+ * @param selected - the labels to record as the answer.
+ */
+function settleTimedOutQuestion(ctx, agent, callId, questionId, selected) {
+  let attempts = 0
+  const tick = () => {
+    attempts += 1
+    try {
+      if (ctx.userQuestions.answer(agent, callId, { answers: [{ id: questionId, selected }] })) return
+    } catch {
+      // A queued reply or a not-yet-continued question is retried below.
+    }
+    if (attempts < 6) setTimeout(tick, 1500)
+  }
+  setTimeout(tick, 1500)
+}
+
+/**
+ * Append one notice about an automatic decision to the plugin's volatile config,
+ * where the browser half renders it above the composer.
+ * @param ctx - plugin context.
+ * @param text - the sentence to show, already timestamped.
+ */
+function recordNotice(ctx, text) {
+  const entry = ctx.fiber?.entry
+  const editor = ctx.get('configEditor')
+  if (entry === undefined || editor === undefined) return
+  const write = editor.edit(entry, current => {
+    let existing = []
+    try {
+      const parsed = JSON.parse(typeof current.notices === 'string' && current.notices.length > 0 ? current.notices : '[]')
+      if (Array.isArray(parsed)) existing = parsed.filter(item => item !== null && typeof item === 'object')
+    } catch {
+      existing = []
+    }
+    const next = [...existing, { id: String(Date.now()), text }].slice(-20)
+    return { ...current, notices: JSON.stringify(next) }
+  })
+  Promise.resolve(write).catch(() => {})
+}
+
+/**
+ * Current wall-clock time for the model-facing record of an automatic action.
+ * @returns `HH:MM:SS` in local time.
+ */
+function clockNow() {
+  const now = new Date()
+  const pad = value => String(value).padStart(2, '0')
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
+/**
+ * Read the timeout fallback settings.
+ * @param config - the row's resolved config; omitted reads the last applied one.
+ * @returns Whether it is enabled, the action to take, and the source label.
+ */
+function autoAnswerSettings(config = liveConfig) {
+  return {
+    enabled: settingBoolean(config, 'autoAnswer', false),
+    action: settingValue(config, 'autoAction', 'cancel') === 'install' ? 'install' : 'cancel',
+    label: settingValue(config, 'autoSourceLabel', ''),
+    uninstallAction: settingValue(config, 'autoUninstallAction', 'keep') === 'remove' ? 'remove' : 'keep',
+  }
 }
 
 /**
@@ -843,19 +983,27 @@ export function apply(ctx, config) {
       if (probe.executable === undefined) throw new Error('no usable Python interpreter found')
 
       const interpreter = probe.executable
-      const base = { packages: probe.packages, interpreter, version: probe.version ?? null, source: defaultSource() }
+      const base = { packages: probe.packages, interpreter, version: probe.version ?? null }
 
       if (args?.action === 'uninstall') {
         const installed = probe.packages.filter(entry => provides(entry))
         if (installed.length === 0) return { ...base, status: 'nothing-to-remove', output: '' }
-        const agreed = await askUninstall(ctx, exec, { installed, interpreter, version: probe.version ?? null })
-        if (!agreed) return { ...base, status: 'cancelled', output: '用户选择保留，未做任何改动' }
+        const decision = await askUninstall(ctx, exec, { installed, interpreter, version: probe.version ?? null })
+        const autoAt = decision.autoAt ?? null
+        if (decision.agreed !== true) {
+          return {
+            ...base,
+            status: 'cancelled',
+            autoAt,
+            output: autoAt === null ? '用户选择保留，未做任何改动' : `${autoAt} 超过 30 秒未回应，按默认设置保留`,
+          }
+        }
         const dists = installed.map(entry => entry.dist ?? entry.name)
         const removal = await runCapture(interpreter, ['-m', 'pip', 'uninstall', '-y', ...dists], exec.signal)
         const removalOutput = tail(`${removal.stdout}\n${removal.stderr}`.trim(), 3000)
         if (removal.code !== 0) return { ...base, status: 'failed', output: removalOutput }
         const remaining = await probeInterpreter(interpreter, names, exec.signal, { fresh: true })
-        return { ...base, status: 'uninstalled', packages: remaining.packages, version: remaining.version ?? null, output: removalOutput }
+        return { ...base, status: 'uninstalled', packages: remaining.packages, version: remaining.version ?? null, autoAt, output: removalOutput }
       }
 
       const missing = probe.packages.filter(entry => !provides(entry)).map(entry => entry.name)
@@ -880,6 +1028,8 @@ export function apply(ctx, config) {
         ...base,
         status: 'installed',
         source: choice.source,
+        autoAnswered: choice.auto === true,
+        autoAt: choice.autoAt ?? null,
         packages: after.packages,
         version: after.version ?? null,
         editables,
@@ -1012,54 +1162,96 @@ async function resolveInterpreter(intent, workspace) {
  * @returns The chosen source, or the reason nothing was installed.
  */
 async function askInstallSource(ctx, exec, details) {
-  const configured = defaultSource()
-  const options = SOURCES.map(source => ({
+  const sources = resolveSources()
+  const options = sources.map(source => ({
     label: source.label,
     description: source.url ?? '不指定镜像，使用 pip 默认渠道',
   }))
   options.push({ label: CANCEL_LABEL, description: '这次不安装任何包' })
 
+  const auto = autoAnswerSettings()
+  const seconds = Math.round(AUTO_TIMEOUT_MS / 1000)
+  const autoLine = auto.enabled
+    ? `${seconds} 秒未回应将自动${auto.action === 'cancel' ? '取消安装' : `按「${auto.label || '未设置'}」安装`}`
+    : null
+
   const detail = [
-    `目标解释器：${details.interpreter}${details.version === null ? '' : ` (Python ${details.version})`}`,
-    details.missing.length > 0 ? `需要安装：${details.missing.join(', ')}` : '需要安装：无（只做可编辑安装）',
-    details.editables.length > 0 ? `可编辑安装：${details.editables.join('，')}` : null,
-    details.extras.length > 0 ? `附加参数：${details.extras.join(' ')}` : null,
-    details.present.length === 0 ? null : `已存在：${details.present.join(', ')}`,
-    `当前默认源：${configured.label}${configured.url === null ? '' : ` — ${configured.url}`}`,
-    '要使用自定义镜像，直接在回答框里填写镜像站 URL，会覆盖上面的选择。',
-  ].filter(line => line !== null).join('\n')
+    `解释器 ${shortPath(details.interpreter)}（Python ${details.version ?? '?'}）`,
+    details.missing.length > 0 ? `待安装 ${details.missing.join('、')}` : '仅可编辑安装',
+    details.editables.length > 0 ? `项目 ${details.editables.join('、')}` : null,
+    details.extras.length > 0 ? `参数 ${details.extras.join(' ')}` : null,
+    details.present.length > 0 ? `已存在 ${details.present.join('、')}` : null,
+    autoLine,
+    '可填自定义镜像 URL 覆盖选择',
+  ].filter(line => line !== null).join(' · ')
 
   const subject = details.missing.length > 0
     ? details.missing.join(', ')
     : details.editables.map(path => path.split('/').pop()).join(', ')
 
+  const request = {
+    questions: [{
+      id: 'python-install-source',
+      header: 'Python 安装确认',
+      question: `确认安装 ${subject}？请选择安装源`,
+      detail,
+      options,
+      multiSelect: false,
+    }],
+    ...(exec.agent === undefined ? {} : { agent: exec.agent }),
+    signal: exec.signal,
+  }
+
   let answer
   try {
-    const result = await ctx.userQuestions.ask({
-      questions: [{
-        id: 'python-install-source',
-        header: 'Python 安装确认',
-        question: `确认安装 ${subject}？请选择安装源`,
-        detail,
-        options,
-        multiSelect: false,
-      }],
-      ...(exec.agent === undefined ? {} : { agent: exec.agent }),
-      signal: exec.signal,
-    })
-    answer = result.answers[0]
+    if (auto.enabled && exec.agent !== undefined && exec.callId !== undefined) {
+      const timed = await ctx.userQuestions.askTimed({ ...request, agent: exec.agent }, exec.callId, AUTO_TIMEOUT_MS)
+      if (timed.pending === true) {
+        const decision = autoSourceDecision(auto, sources)
+        recordNotice(ctx, decision.kind === 'source'
+          ? `${decision.autoAt} 超过 30 秒未回应，已自动用「${decision.source.label}」安装`
+          : `${decision.autoAt} 超过 30 秒未回应，已自动取消安装`)
+        settleTimedOutQuestion(
+          ctx, exec.agent, exec.callId, 'python-install-source',
+          decision.kind === 'source' ? [decision.source.label] : [CANCEL_LABEL],
+        )
+        return decision
+      }
+      answer = timed.answers[0]
+    } else {
+      const result = await ctx.userQuestions.ask(request)
+      answer = result.answers[0]
+    }
   } catch (error) {
     return { kind: 'unavailable', reason: `确认对话框不可用：${error instanceof Error ? error.message : String(error)}` }
   }
 
   if (answer === undefined) return { kind: 'cancelled', reason: '没有收到回答，未安装任何包' }
   const custom = validSourceUrl(answer.custom)
-  if (custom !== null) return { kind: 'source', source: { id: 'custom', label: '自定义镜像', url: custom, description: custom } }
+  if (custom !== null) return { kind: 'source', source: { label: '自定义镜像', url: custom } }
   const [selected] = answer.selected
   if (selected === undefined || selected === CANCEL_LABEL) return { kind: 'cancelled', reason: '用户取消了安装' }
-  const picked = SOURCES.find(source => source.label === selected)
+  const picked = sources.find(source => source.label === selected)
   if (picked === undefined) return { kind: 'cancelled', reason: `无法识别的安装源：${selected}` }
   return { kind: 'source', source: picked }
+}
+
+/**
+ * Apply the timeout fallback the user configured.
+ * @param auto - resolved auto-answer settings.
+ * @param sources - the current source list.
+ * @returns The chosen source, or the reason nothing will be installed.
+ */
+function autoSourceDecision(auto, sources) {
+  const at = clockNow()
+  if (auto.action === 'cancel') {
+    return { kind: 'cancelled', reason: `${at} 超过 30 秒未回应，按默认设置取消安装`, autoAt: at }
+  }
+  const picked = sources.find(source => source.label === auto.label)
+  if (picked === undefined) {
+    return { kind: 'cancelled', reason: `${at} 超过 30 秒未回应，且默认安装源「${auto.label}」不在源列表中，已取消`, autoAt: at }
+  }
+  return { kind: 'source', source: picked, auto: true, autoAt: at }
 }
 
 /**
@@ -1071,34 +1263,58 @@ async function askInstallSource(ctx, exec, details) {
  * @returns Whether the user confirmed removal.
  */
 async function askUninstall(ctx, exec, details) {
+  const auto = autoAnswerSettings()
+  const seconds = Math.round(AUTO_TIMEOUT_MS / 1000)
+  const autoLine = auto.enabled
+    ? `${seconds} 秒未回应将自动${auto.uninstallAction === 'remove' ? '执行卸载' : '保留'}`
+    : null
+
   const detail = [
-    `目标解释器：${details.interpreter}${details.version === null ? '' : ` (Python ${details.version})`}`,
-    `当前已安装：${details.installed.map(entry => `${entry.name} ${entry.version ?? '?'}`).join(', ')}`,
-    '卸载后不会自动恢复，需要时得重新安装。',
-  ].join('\n')
+    `解释器 ${shortPath(details.interpreter)}（Python ${details.version ?? '?'}）`,
+    `已安装 ${details.installed.map(entry => `${entry.name} ${entry.version ?? '?'}`).join('、')}`,
+    autoLine,
+    '卸载后不会自动恢复',
+  ].filter(line => line !== null).join(' · ')
+
+  const request = {
+    questions: [{
+      id: 'python-uninstall',
+      header: 'Python 卸载确认',
+      question: `确认卸载 ${details.installed.map(entry => entry.name).join('、')}？`,
+      detail,
+      options: [
+        { label: CONFIRM_UNINSTALL_LABEL, description: '从上面这个解释器里移除' },
+        { label: CANCEL_UNINSTALL_LABEL, description: '什么都不做' },
+      ],
+      multiSelect: false,
+    }],
+    ...(exec.agent === undefined ? {} : { agent: exec.agent }),
+    signal: exec.signal,
+  }
 
   let answer
   try {
-    const result = await ctx.userQuestions.ask({
-      questions: [{
-        id: 'python-uninstall',
-        header: 'Python 卸载确认',
-        question: `确认卸载 ${details.installed.map(entry => entry.name).join(', ')}？`,
-        detail,
-        options: [
-          { label: CONFIRM_UNINSTALL_LABEL, description: '从上面这个解释器里移除' },
-          { label: CANCEL_UNINSTALL_LABEL, description: '什么都不做' },
-        ],
-        multiSelect: false,
-      }],
-      ...(exec.agent === undefined ? {} : { agent: exec.agent }),
-      signal: exec.signal,
-    })
-    answer = result.answers[0]
+    if (auto.enabled && exec.agent !== undefined && exec.callId !== undefined) {
+      const timed = await ctx.userQuestions.askTimed({ ...request, agent: exec.agent }, exec.callId, AUTO_TIMEOUT_MS)
+      if (timed.pending === true) {
+        const agreed = auto.uninstallAction === 'remove'
+        const at = clockNow()
+        recordNotice(ctx, `${at} 超过 30 秒未回应，已自动${agreed ? '执行卸载' : '保留'} ${details.installed.map(entry => entry.name).join('、')}`)
+        settleTimedOutQuestion(
+          ctx, exec.agent, exec.callId, 'python-uninstall',
+          [agreed ? CONFIRM_UNINSTALL_LABEL : CANCEL_UNINSTALL_LABEL],
+        )
+        return { agreed, autoAt: at }
+      }
+      answer = timed.answers[0]
+    } else {
+      const result = await ctx.userQuestions.ask(request)
+      answer = result.answers[0]
+    }
   } catch (error) {
     throw new Error(`卸载确认对话框不可用，未执行卸载：${error instanceof Error ? error.message : String(error)}`)
   }
-  return answer !== undefined && answer.selected[0] === CONFIRM_UNINSTALL_LABEL
+  return { agreed: answer !== undefined && answer.selected[0] === CONFIRM_UNINSTALL_LABEL }
 }
 
 /**
@@ -1237,17 +1453,18 @@ function renderValue(value) {
       if (packages.length > 0) lines.push(packages)
     } else if (value.status === 'installed') {
       lines.push(`installed through ${source.label}${source.url === null ? '' : ` (${source.url})`} into ${value.interpreter}`)
+      if (value.autoAnswered === true) lines.push(`（${value.autoAt ?? '30 秒内未回应'} 自动按默认设置执行）`)
       if (packages.length > 0) lines.push(packages)
       if (Array.isArray(value.editables) && value.editables.length > 0) lines.push(`editable: ${value.editables.join(', ')}`)
       if (Array.isArray(value.extras) && value.extras.length > 0) lines.push(`flags: ${value.extras.join(' ')}`)
     } else if (value.status === 'uninstalled') {
-      lines.push(`removed from ${value.interpreter}`)
+      lines.push(`removed from ${value.interpreter}${value.autoAt ? `（${value.autoAt} 自动按默认设置执行）` : ''}`)
       if (packages.length > 0) lines.push(packages)
     } else if (value.status === 'nothing-to-remove') {
       lines.push(`nothing to remove: none of the requested packages are installed in ${value.interpreter}`)
     } else if (value.status === 'cancelled') {
-      lines.push('install cancelled; nothing was changed')
       if (value.output) lines.push(value.output)
+      else lines.push('已取消，未做任何改动')
     } else if (value.status === 'unavailable') {
       lines.push('the confirmation dialog is unavailable, so nothing was installed')
       if (value.output) lines.push(value.output)

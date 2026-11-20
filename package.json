@@ -1,6 +1,6 @@
 {
   "name": "dsh-better-python",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "Probe Python interpreters before installing anything, and prefer the libraries that already exist.",
   "exports": {
@@ -26,7 +26,10 @@
     },
     "client": {
       "platform": "web",
-      "immediately": true
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
     }
   },
   "dependencies": {
