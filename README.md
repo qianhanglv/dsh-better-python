@@ -98,7 +98,7 @@ AI 编码代理在处理 Python 任务时，存在两类很难自知的系统性
 在 DSH 的 **Plugins → Add plugin** 中输入：
 
 ```
-git+https://github.com/qianhanglv/dsh-better-python.git#02843e9937cfcd4ed44691d40676ff559a6d6758
+git+https://github.com/qianhanglv/dsh-better-python.git#291522da1250f4e55a47f2d293f35c8b27ae9d11
 ```
 
 该 commit 即当前发布版本。Git 安装要求本机具备 `git`。
